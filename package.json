@@ -6,15 +6,22 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/epamemo/ChatBot-MajuAI.git"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "module",
+  "bugs": {
+    "url": "https://github.com/epamemo/ChatBot-MajuAI/issues"
+  },
+  "homepage": "https://github.com/epamemo/ChatBot-MajuAI#readme",
   "dependencies": {
     "@google/genai": "^2.0.1",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
-    "express": "^5.2.1",
-    "multer": "^2.1.1"
+    "express": "^5.2.1"
   }
 }
