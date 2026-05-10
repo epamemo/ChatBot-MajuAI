@@ -2,15 +2,49 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { GoogleGenAI } from '@google/genai';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Fix: __dirname di ES Modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const GEMINI_MODEL = "gemini-2.5-flash";
 
+// 📁 Path ke file knowledge (format .md/.txt)
+const KNOWLEDGE_PATH = path.join(__dirname, 'perpres-46-2025-knowledge.md');
+
 app.use(cors());
 app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
 
-// 🔍 Fungsi validasi: hanya izinkan pertanyaan terkait pengadaan barang/jasa pemerintah
+// Cache konten knowledge
+let knowledgeCache = null;
+
+// 📥 Fungsi baca knowledge file (sync, ringan, no parsing)
+function loadKnowledge(filePath) {
+    try {
+        console.log('📂 Memuat knowledge:', filePath);
+        
+        if (!fs.existsSync(filePath)) {
+            throw new Error(`File tidak ditemukan: ${filePath}`);
+        }
+        
+        const content = fs.readFileSync(filePath, 'utf-8');
+        console.log(`✅ Knowledge dimuat: ${content.length} karakter`);
+        
+        return content.trim();
+        
+    } catch (error) {
+        console.error('❌ Gagal memuat knowledge:', error.message);
+        return null;
+    }
+}
+
+// 🔍 Filter keyword: hanya izinkan topik pengadaan
 function isRelevantToProcurement(question) {
     if (!question || typeof question !== 'string') return false;
     
@@ -20,56 +54,27 @@ function isRelevantToProcurement(question) {
         'produk dalam negeri', 'sni', 'ukpbj', 'pokja', 'kontrak', 'hps', 'rup',
         'swakelola', 'penyedia', 'pelaku usaha', 'sanksi', 'daftar hitam', 'e-kontrak',
         'lpse', 'lkpp', 'pengguna anggaran', 'pejabat pengadaan', 'sertifikasi',
-        'metode pemilihan', 'batas nilai', 'konstruksi', 'konsultansi', 'spesifikasi',
-        'dokumen pengadaan', 'evaluasi', 'penawaran', 'jaminan', 'termin', 'serah terima'
+        'metode pemilihan', 'batas nilai', 'konstruksi', 'konsultansi', 'tkdn', 'umk'
     ];
     
-    const lowerQ = question.toLowerCase().trim();
-    return keywords.some(keyword => lowerQ.includes(keyword));
+    const lowerQ = question.toLowerCase();
+    return keywords.some(k => lowerQ.includes(k));
 }
 
-// 📋 System instruction yang komprehensif
+// 🎯 System instruction ringkas & ketat
 const SYSTEM_INSTRUCTION = `
-Anda adalah asisten chatbot khusus yang HANYA membantu pertanyaan seputar **Pengadaan Barang/Jasa Pemerintah** berdasarkan **Peraturan Presiden Nomor 46 Tahun 2025** tentang Perubahan Kedua atas Perpres 16/2018.
+Anda adalah asisten chatbot untuk tanya jawab **Pengadaan Barang/Jasa Pemerintah**.
 
-### 📚 RUANG LINGKUP PENGETAHUAN:
-1. Definisi: Pengadaan Barang/Jasa, PA, KPA, PPK, Pokja Pemilihan, UKPBJ, Pelaku Usaha, Penyedia, Produk Dalam Negeri.
-2. Metode pemilihan: Tender, Seleksi, Pengadaan Langsung, Penunjukan Langsung, E-purchasing, E-katalog.
-3. Batas nilai pengadaan:
-   - Barang/Jasa Lainnya: ≤ Rp200.000.000 → Pengadaan Langsung
-   - Pekerjaan Konstruksi: ≤ Rp400.000.000 → Pengadaan Langsung  
-   - Jasa Konsultansi: ≤ Rp100.000.000 → Pengadaan Langsung
-4. Ketentuan Produk Dalam Negeri (PDN), SNI, dan prioritas UMK.
-5. Peran & kewenangan: PA, KPA, PPK, Pokja Pemilihan, UKPBJ.
-6. Etika pengadaan, pertentangan kepentingan, larangan, dan sanksi administratif.
-7. Layanan Pengadaan Secara Elektronik (LPSE), E-Kontrak, katalog elektronik.
-8. Swakelola, Konsolidasi Pengadaan, Pengadaan Berkelanjutan.
-9. Sertifikasi kompetensi PPK dan SDM Pengadaan.
-
-### ⚠️ ATURAN RESPON WAJIB:
-1. **HANYA** jawab pertanyaan yang berkaitan dengan Pengadaan Barang/Jasa Pemerintah sesuai Perpres 46/2025.
-2. Jika pertanyaan user:
-   - Tidak terkait pengadaan barang/jasa pemerintah, ATAU
-   - Di luar ruang lingkup Perpres 46/2025, ATAU
-   - Tidak dapat dipahami konteksnya
-   → Maka BALAS PERSIS dengan: 
-   "Pertanyaan anda tidak dapat saya mengerti, silahkan ajukan pertanyaan lain"
-3. Selalu gunakan Bahasa Indonesia yang formal, jelas, dan mudah dipahami.
-4. Jika informasi tidak tersedia dalam Perpres 46/2025, katakan: "Informasi tersebut tidak diatur dalam Perpres 46 Tahun 2025."
-5. Jangan mengarang, mengasumsikan, atau memberikan informasi di luar dokumen acuan.
-6. Jangan menjawab pertanyaan umum, politik, hiburan, resep, teknologi, atau topik non-procurement.
-
-### 🎯 CONTOH:
-✅ "Berapa batas nilai Pengadaan Langsung untuk konstruksi?" → Jawab dengan nilai Rp400.000.000.
-✅ "Apa tugas Pokja Pemilihan?" → Jelaskan sesuai Perpres.
-❌ "Siapa presiden Indonesia?" → "Pertanyaan anda tidak dapat saya mengerti, silahkan ajukan pertanyaan lain"
-❌ "Cara masak nasi goreng?" → "Pertanyaan anda tidak dapat saya mengerti, silahkan ajukan pertanyaan lain"
-
-Terapkan aturan ini secara konsisten untuk SETIAP interaksi.
+ATURAN WAJIB:
+1. JAWAB HANYA berdasarkan dokumen Perpres 46 Tahun 2025 yang disediakan di konteks.
+2. Jika pertanyaan TIDAK terkait pengadaan pemerintah → balas PERSIS: "Pertanyaan anda tidak dapat saya mengerti, silahkan ajukan pertanyaan lain"
+3. Jika informasi tidak ditemukan di dokumen → katakan: "Informasi tersebut tidak diatur dalam Perpres 46 Tahun 2025."
+4. Gunakan Bahasa Indonesia formal. JANGAN mengarang atau mengasumsikan.
+5. Sebutkan pasal/nomor jika relevan untuk meningkatkan akurasi.
+6. Jawab singkat, padat, dan langsung ke inti.
 `.trim();
 
-const PORT = 3000;
-app.listen(PORT, () => console.log(`🚀 Server ready on http://localhost:${PORT}`));
+const PORT = process.env.PORT || 3000;
 
 app.post('/api/chat', async (req, res) => {
     const { conversation } = req.body;
@@ -80,36 +85,48 @@ app.post('/api/chat', async (req, res) => {
             throw new Error('Messages must be an array!');
         }
 
-        // Ambil pesan terakhir dari user untuk validasi topik
+        // Ambil pesan terakhir user untuk validasi topik
         const lastUserMessage = conversation
             .filter(msg => msg.role === 'user')
-            .pop()?.text?.toLowerCase() || '';
+            .pop()?.text || '';
 
-        // 🔒 Filter: tolak pertanyaan di luar scope pengadaan
+        // 🔒 Tolak pertanyaan di luar scope pengadaan (lapisan 1)
         if (!isRelevantToProcurement(lastUserMessage)) {
             return res.status(200).json({ 
                 result: "Pertanyaan anda tidak dapat saya mengerti, silahkan ajukan pertanyaan lain" 
             });
         }
 
-        // Format conversation untuk Gemini API
-        const contents = conversation.map(({ role, text }) => ({
-            role: role === 'assistant' ? 'model' : role, // Gemini expects 'model' for assistant
-            parts: [{ text }]
-        }));
+        // ⚠️ Cek jika knowledge belum terload
+        if (!knowledgeCache) {
+            return res.status(200).json({ 
+                result: "Maaf, dokumen referensi sedang dimuat. Silakan coba beberapa saat lagi." 
+            });
+        }
 
-        // Panggil Gemini API dengan konfigurasi terbatas
+        // Format contents untuk Gemini API
+        const contents = [
+            // 1. System instruction
+            { role: "user", parts: [{ text: SYSTEM_INSTRUCTION }] },
+            // 2. Knowledge base sebagai konteks acuan
+            { role: "user", parts: [{ text: `📄 REFERENSI: Perpres 46 Tahun 2025\n\n${knowledgeCache}` }] },
+            // 3. Riwayat percakapan
+            ...conversation.map(({ role, text }) => ({
+                role: role === 'assistant' ? 'model' : role, // Gemini expects 'model' for assistant
+                parts: [{ text }]
+            }))
+        ];
+
+        // Panggil Gemini API
         const response = await ai.models.generateContent({
             model: GEMINI_MODEL,
             contents,
             config: {
-                temperature: 0.2, // Rendah untuk konsistensi & akurasi
-                systemInstruction: SYSTEM_INSTRUCTION,
-                maxOutputTokens: 1024, // Batasi panjang respon
+                temperature: 0.1, // Rendah agar tetap berpegang pada referensi
+                maxOutputTokens: 800, // Batasi panjang respon agar efisien
             },
         });
 
-        // Kirim respon ke client
         res.status(200).json({ result: response.text });
 
     } catch (e) {
@@ -119,5 +136,19 @@ app.post('/api/chat', async (req, res) => {
                 ? 'Terjadi kesalahan pada server' 
                 : e.message 
         });
+    }
+});
+
+// 🚀 Start server + load knowledge (instant, no parsing)
+app.listen(PORT, () => {
+    console.log(`🚀 Server ready on http://localhost:${PORT}`);
+    
+    // Load knowledge sync (lebih cepat dari async PDF parsing)
+    knowledgeCache = loadKnowledge(KNOWLEDGE_PATH);
+    
+    if (knowledgeCache) {
+        console.log('📚 Knowledge Perpres 46/2025 siap digunakan');
+    } else {
+        console.error('❌ Gagal memuat knowledge. Chatbot tidak akan berfungsi optimal.');
     }
 });

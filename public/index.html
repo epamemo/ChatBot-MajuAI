@@ -1,20 +1,116 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Gemini AI Chatbot</title>
-  <link rel="stylesheet" href="style.css"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Moka AI — Chatbot Pengadaan Barang/Jasa Pemerintah</title>
+  <meta name="description" content="Chatbot AI untuk tanya jawab seputar Pengadaan Barang/Jasa Pemerintah berdasarkan Perpres 46 Tahun 2025. Didukung oleh Google Gemini." />
+  <meta property="og:title" content="Moka AI — Chatbot Pengadaan" />
+  <meta property="og:description" content="Tanya jawab Pengadaan Barang/Jasa Pemerintah dengan AI." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="container">
-    <h1>Gemini AI Chatbot</h1>
-    <div id="chat-box" class="chat-box"></div>
-    <form id="chat-form">
-      <input type="text" id="user-input" placeholder="Type your message..." autocomplete="off" required />
-      <button type="submit">Send</button>
-    </form>
+  <div class="app-wrapper">
+    <!-- Header -->
+    <header class="app-header" id="app-header">
+      <div class="header-left">
+        <div class="logo-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/>
+          </svg>
+        </div>
+        <div class="header-title">
+          <h1>Moka AI</h1>
+          <span class="header-subtitle">Perpres 46/2025 · Pengadaan Barang/Jasa</span>
+        </div>
+      </div>
+      <div class="header-right">
+        <button id="btn-clear-chat" class="btn-icon" title="Bersihkan percakapan" aria-label="Bersihkan percakapan">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Chat Area -->
+    <main class="chat-area" id="chat-area">
+      <!-- Welcome Screen -->
+      <div class="welcome-screen" id="welcome-screen">
+        <div class="welcome-icon">
+          <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="url(#grad1)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <defs>
+              <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#d4a373" />
+                <stop offset="100%" style="stop-color:#8b5e3c" />
+              </linearGradient>
+            </defs>
+            <path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/>
+          </svg>
+        </div>
+        <h2>Selamat Datang di Moka AI</h2>
+        <p>Saya adalah asisten AI untuk menjawab pertanyaan seputar <strong>Pengadaan Barang/Jasa Pemerintah</strong> berdasarkan <strong>Perpres 46 Tahun 2025</strong>.</p>
+        <div class="suggestions" id="suggestions">
+          <button class="suggestion-chip" data-question="Apa saja metode pemilihan penyedia dalam pengadaan?">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            Metode pemilihan penyedia
+          </button>
+          <button class="suggestion-chip" data-question="Apa itu pengadaan langsung dan berapa batas nilainya?">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            Batas nilai pengadaan langsung
+          </button>
+          <button class="suggestion-chip" data-question="Apa saja jenis sanksi dalam pengadaan barang/jasa?">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            Jenis sanksi pengadaan
+          </button>
+          <button class="suggestion-chip" data-question="Jelaskan 4 tipe swakelola dalam Perpres 46/2025">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            4 tipe swakelola
+          </button>
+        </div>
+      </div>
+
+      <!-- Messages Container -->
+      <div class="messages-container" id="messages-container"></div>
+
+      <!-- Typing Indicator -->
+      <div class="typing-indicator" id="typing-indicator">
+        <div class="typing-avatar">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+        </div>
+        <div class="typing-dots">
+          <span></span><span></span><span></span>
+        </div>
+      </div>
+    </main>
+
+    <!-- Input Bar -->
+    <footer class="input-bar" id="input-bar">
+      <form id="chat-form" autocomplete="off">
+        <div class="input-wrapper">
+          <textarea
+            id="user-input"
+            placeholder="Tanyakan tentang pengadaan barang/jasa..."
+            rows="1"
+            required
+            aria-label="Tulis pertanyaan"
+          ></textarea>
+          <button type="submit" id="btn-send" title="Kirim pesan" aria-label="Kirim pesan">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"/>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+          </button>
+        </div>
+        <p class="input-hint">Tekan <kbd>Enter</kbd> untuk kirim · <kbd>Shift+Enter</kbd> baris baru</p>
+      </form>
+    </footer>
   </div>
+
   <script src="script.js"></script>
 </body>
 </html>
