@@ -2,7 +2,7 @@
   "name": "gemini-chatbot-api",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "api/index.js",
   "scripts": {
     "start": "node api/index.js",
     "dev": "node --watch api/index.js",
@@ -24,7 +24,9 @@
     "@google/genai": "^2.0.1",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
-    "express": "^5.2.1",
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
     "pdfkit": "^0.18.0",
     "puppeteer": "^24.43.0"
   }
