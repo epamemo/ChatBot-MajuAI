@@ -14,23 +14,29 @@ const app = express();
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const GEMINI_MODEL = "gemini-2.5-flash";
 
-// 📁 Path ke file knowledge (format .md/.txt)
-const KNOWLEDGE_PATH = path.join(__dirname, 'perpres-46-2025-knowledge.md');
+// 📁 Path ke file knowledge (gunakan process.cwd() agar aman di Vercel)
+const KNOWLEDGE_PATH = path.join(process.cwd(), 'perpres-46-2025-knowledge.md');
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(process.cwd(), 'public')));
 
 // Cache konten knowledge
 let knowledgeCache = null;
 
-// 📥 Fungsi baca knowledge file (sync, ringan, no parsing)
+// 📥 Fungsi baca knowledge file
 function loadKnowledge(filePath) {
     try {
         console.log('📂 Memuat knowledge:', filePath);
         
         if (!fs.existsSync(filePath)) {
-            throw new Error(`File tidak ditemukan: ${filePath}`);
+            // Coba path alternatif jika process.cwd() berbeda di environment tertentu
+            const altPath = path.join(__dirname, '..', 'perpres-46-2025-knowledge.md');
+            if (fs.existsSync(altPath)) {
+                filePath = altPath;
+            } else {
+                throw new Error(`File tidak ditemukan: ${filePath}`);
+            }
         }
         
         const content = fs.readFileSync(filePath, 'utf-8');
@@ -43,6 +49,9 @@ function loadKnowledge(filePath) {
         return null;
     }
 }
+
+// Initialize knowledge immediately
+knowledgeCache = loadKnowledge(KNOWLEDGE_PATH);
 
 // 🔍 Filter keyword: hanya izinkan topik pengadaan
 function isRelevantToProcurement(question) {
@@ -80,50 +89,45 @@ app.post('/api/chat', async (req, res) => {
     const { conversation } = req.body;
     
     try {
-        // Validasi input
         if (!Array.isArray(conversation)) {
             throw new Error('Messages must be an array!');
         }
 
-        // Ambil pesan terakhir user untuk validasi topik
         const lastUserMessage = conversation
             .filter(msg => msg.role === 'user')
             .pop()?.text || '';
 
-        // 🔒 Tolak pertanyaan di luar scope pengadaan (lapisan 1)
         if (!isRelevantToProcurement(lastUserMessage)) {
             return res.status(200).json({ 
                 result: "Pertanyaan anda tidak dapat saya mengerti, silahkan ajukan pertanyaan lain" 
             });
         }
 
-        // ⚠️ Cek jika knowledge belum terload
         if (!knowledgeCache) {
-            return res.status(200).json({ 
-                result: "Maaf, dokumen referensi sedang dimuat. Silakan coba beberapa saat lagi." 
-            });
+            // Retry load if cache is empty
+            knowledgeCache = loadKnowledge(KNOWLEDGE_PATH);
+            if (!knowledgeCache) {
+                return res.status(200).json({ 
+                    result: "Maaf, dokumen referensi sedang dimuat. Silakan coba beberapa saat lagi." 
+                });
+            }
         }
 
-        // Format contents untuk Gemini API
         const contents = [
-            // 1. System instruction
             { role: "user", parts: [{ text: SYSTEM_INSTRUCTION }] },
-            // 2. Knowledge base sebagai konteks acuan
             { role: "user", parts: [{ text: `📄 REFERENSI: Perpres 46 Tahun 2025\n\n${knowledgeCache}` }] },
-            // 3. Riwayat percakapan
             ...conversation.map(({ role, text }) => ({
-                role: role === 'assistant' ? 'model' : role, // Gemini expects 'model' for assistant
+                role: role === 'assistant' ? 'model' : role,
                 parts: [{ text }]
             }))
         ];
 
-        // Panggil Gemini API
         const response = await ai.models.generateContent({
             model: GEMINI_MODEL,
             contents,
             config: {
-                temperature: 0.1, // Rendah agar tetap berpegang pada referensi
-                maxOutputTokens: 800, // Batasi panjang respon agar efisien
+                temperature: 0.1,
+                maxOutputTokens: 800,
             },
         });
 
@@ -139,16 +143,12 @@ app.post('/api/chat', async (req, res) => {
     }
 });
 
-// 🚀 Start server + load knowledge (instant, no parsing)
-app.listen(PORT, () => {
-    console.log(`🚀 Server ready on http://localhost:${PORT}`);
-    
-    // Load knowledge sync (lebih cepat dari async PDF parsing)
-    knowledgeCache = loadKnowledge(KNOWLEDGE_PATH);
-    
-    if (knowledgeCache) {
+// Hanya jalankan listener jika tidak di Vercel
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+    app.listen(PORT, () => {
+        console.log(`🚀 Server ready on http://localhost:${PORT}`);
         console.log('📚 Knowledge Perpres 46/2025 siap digunakan');
-    } else {
-        console.error('❌ Gagal memuat knowledge. Chatbot tidak akan berfungsi optimal.');
-    }
-});
+    });
+}
+
+export default app;
